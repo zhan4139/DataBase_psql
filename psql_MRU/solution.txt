@@ -1,0 +1,43 @@
+Brief Summary:
+	First, We added an int type timestamp property for each buffer. Then, during the initialization,
+	we set each buffer's timestamp to zero. As buffers are being used, we increment each buffer's 
+	timestamp, and find the the buffer using StrategyGetBuffer function with the maximum timestamp, 
+	which is the most recent one, to replace it.   
+
+Detailed Changes:
+1. buf_internals.h: postfresql-9.6.1/src/include/storage/buf_internals.h
+	-In line 188, we delared an int type timestamp in BufferDesc struct for tracking 
+		each buffer's timestamp.
+
+2. buf_init.c: postfresql-9.6.1/src/backend/strorage/buffer/buf_init.c
+	-In line 143, we initialize each buffer's timestamp to 0 for the furthur buffer
+		timestamp assignments and comparsions.
+	
+3. bufmgr.c: postfresql-9.6.1/src/backend/strorage/buffer/bufmgr.c
+	-In line 109, we set a global variable starting from 0 to increment everytime 
+		when there is a new buffer.
+	-In line 747-748, in ReadBuffer_common function, we incremented the current 
+		timestamp and set each buffer's time stamp to it when they are read. 
+
+4. freelist.c: postfresql-9.6.1/src/backend/strorage/buffer/freelist.c 
+	-In line 24, we defined an MRU for MRU mode or LRU+clock mode. If MRU equals 1, 
+		run MRU, else, run LRU+clock.
+	-In line 187, we declared a BufferDesc type max_buf for storing buffer with 
+		maximum timestamp.	
+	-In line 298 - line 353, we actually perform the Most-Recently-Used algorithm 
+		within the StrategyGetBuffer.
+	-In line 300 - line 302, we used i and trycounters for iteration and max_state 
+		for recording the state of max_buf.
+	-In line 304 - line 312, we write a loop to print out all the candidate buffer's 
+		timestamp just for reviewing and checking the replaced one.  
+	-In line 314 - line 326, we want to find one buffer, named max_buf, which is now 
+		unused(by checking its reference count is 0) and later can be used to do 
+		comparsion with other unused buffers.
+	-In line 328 - line 332, if we can not find an unused buffer, print error message and exit.
+	-In line 339 - line 345, this is where we actually do the comparsion. By making 
+		sure the buffer is unused first through reference count, once we find a 
+		buffer with larger timestamp, we assign it to max_buf and assign its state to max_state.
+	-In line 350 - line 352, we  assign the max_state of the max_buf we get from the 
+		loop to buf_state, and it is the state we modified for initial passing 
+		parameter. In the last line, we return the max_buf, which is most 
+		recently used one with maximum timestamp.
